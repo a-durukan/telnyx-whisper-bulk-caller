@@ -142,7 +142,8 @@ def start_calls():
         content = file.read().decode('utf-8')
         numbers = [line.strip() for line in content.split('\n') if line.strip()]
     except Exception as e:
-        return jsonify({'success': False, 'error': f'Error reading file: {str(e)}'})
+        logging.error(f'Error reading file: {type(e).__name__}')
+        return jsonify({'success': False, 'error': 'Error reading file. Please ensure it is a valid text file.'})
     
     if not numbers:
         return jsonify({'success': False, 'error': 'No phone numbers found in file'})
@@ -157,7 +158,7 @@ def start_calls():
     return jsonify({
         'success': True,
         'message': f'Started calling {len(numbers)} numbers',
-        'results': results
+        'results': [{'success': r.get('success', False), 'number': r.get('number', 'unknown')} for r in results]
     })
 
 @app.route('/api/call-status')
@@ -300,9 +301,22 @@ def call_recording_saved():
             logging.info(f"Transcribing call {call_control_id}...")
             
             # Download and transcribe audio file
+            # Validate that recording_url comes from Telnyx to prevent SSRF
             import requests
-            audio_file = requests.get(recording_url, stream=True).raw
-            transcript = openai.Audio.transcribe("whisper-1", audio_file)
+            from urllib.parse import urlparse
+            
+            if recording_url:
+                parsed_url = urlparse(recording_url)
+                # Only allow downloads from Telnyx domains
+                if not (parsed_url.hostname and 'telnyx.com' in parsed_url.hostname):
+                    logging.error(f"Invalid recording URL domain: {parsed_url.hostname}")
+                    return '', 200
+                
+                audio_file = requests.get(recording_url, stream=True, timeout=30).raw
+                transcript = openai.Audio.transcribe("whisper-1", audio_file)
+            else:
+                logging.error("No recording URL provided")
+                return '', 200
             
             # Write result to TSV file
             with open('results.tsv', 'a', newline='') as f_output:
