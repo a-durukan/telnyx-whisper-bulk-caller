@@ -69,8 +69,8 @@ def call_and_play_sound(number):
         }
         return {'success': True, 'call_id': call.call_control_id}
     except Exception as e:
-        logging.error(f"Error calling {number}: {str(e)}")
-        return {'success': False, 'error': str(e), 'number': number}
+        logging.error(f"Error calling {number}: {type(e).__name__}")
+        return {'success': False, 'error': 'Failed to initiate call', 'number': number}
 
 # Function to transcribe audio file
 def transcribe_audio_file(file_path, filename):
@@ -307,8 +307,10 @@ def call_recording_saved():
             
             if recording_url:
                 parsed_url = urlparse(recording_url)
-                # Only allow downloads from Telnyx domains
-                if not (parsed_url.hostname and 'telnyx.com' in parsed_url.hostname):
+                # Only allow downloads from Telnyx domains with strict validation
+                if not (parsed_url.hostname and 
+                       parsed_url.scheme in ('https', 'http') and
+                       (parsed_url.hostname.endswith('.telnyx.com') or parsed_url.hostname == 'telnyx.com')):
                     logging.error(f"Invalid recording URL domain: {parsed_url.hostname}")
                     return '', 200
                 
