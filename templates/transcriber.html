@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <h2>🎵 Audio Transcriber</h2>
+    <p>Upload audio files to transcribe them using OpenAI Whisper.</p>
+</div>
+
+<div id="alert-container"></div>
+
+<div class="card">
+    <h3>Upload Audio Files</h3>
+    <form id="transcribe-form">
+        <div class="form-group">
+            <label for="audio_files">Audio Files:</label>
+            <input type="file" id="audio_files" name="audio_files" multiple accept=".mp3,.mp4,.mpeg,.mpga,.m4a,.wav,.webm" required>
+            <small style="color: #6c757d;">Supported formats: MP3, MP4, MPEG, MPGA, M4A, WAV, WEBM</small>
+        </div>
+        
+        <button type="submit" class="btn" id="transcribe-btn">🎙️ Transcribe Files</button>
+    </form>
+</div>
+
+<div id="progress-section" class="card hidden">
+    <h3>Transcription Progress</h3>
+    <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill" style="width: 0%;">0%</div>
+    </div>
+    <p id="progress-text">Processing files...</p>
+</div>
+
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3>Transcription Results</h3>
+        <div>
+            <button class="btn btn-secondary" onclick="loadTranscriptions()">🔄 Refresh</button>
+            <button class="btn btn-success" onclick="downloadTranscriptions()">📥 Download TSV</button>
+        </div>
+    </div>
+    
+    <div id="transcriptions-container">
+        <div class="spinner"></div>
+    </div>
+</div>
+
+<div class="card">
+    <h3>ℹ️ Instructions</h3>
+    <ol style="line-height: 2; margin-left: 20px;">
+        <li>Make sure you've configured your OpenAI API key in the <a href="/config" style="color: #667eea;">Configuration</a> page</li>
+        <li>Select one or more audio files from your computer</li>
+        <li>Click "Transcribe Files" to start the transcription process</li>
+        <li>Results will be displayed below and saved to transcriptions.tsv</li>
+    </ol>
+    
+    <h4 style="margin-top: 20px;">Supported Audio Formats:</h4>
+    <ul style="line-height: 2; margin-left: 20px;">
+        <li>MP3</li>
+        <li>MP4</li>
+        <li>MPEG</li>
+        <li>MPGA</li>
+        <li>M4A</li>
+        <li>WAV</li>
+        <li>WEBM</li>
+    </ul>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.getElementById('transcribe-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData();
+        const fileInput = document.getElementById('audio_files');
+        const files = fileInput.files;
+        
+        for (let i = 0; i < files.length; i++) {
+            formData.append('audio_files', files[i]);
+        }
+        
+        document.getElementById('transcribe-btn').disabled = true;
+        document.getElementById('transcribe-btn').textContent = '⏳ Transcribing...';
+        document.getElementById('progress-section').classList.remove('hidden');
+        
+        const progressFill = document.getElementById('progress-fill');
+        const progressText = document.getElementById('progress-text');
+        
+        try {
+            const response = await fetch('/api/transcribe', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                const successCount = result.results.filter(r => r.success).length;
+                const failCount = result.results.filter(r => !r.success).length;
+                
+                progressFill.style.width = '100%';
+                progressFill.textContent = '100%';
+                progressText.textContent = `Completed: ${successCount} succeeded, ${failCount} failed`;
+                
+                showAlert(`Transcribed ${successCount} files successfully!`, 'success');
+                
+                // Display results
+                displayTranscriptionResults(result.results);
+                
+                // Reload all transcriptions
+                setTimeout(() => {
+                    loadTranscriptions();
+                }, 1000);
+            } else {
+                showAlert('Error: ' + result.error, 'error');
+            }
+        } catch (error) {
+            showAlert('Error: ' + error.message, 'error');
+        } finally {
+            document.getElementById('transcribe-btn').disabled = false;
+            document.getElementById('transcribe-btn').textContent = '🎙️ Transcribe Files';
+        }
+    });
+    
+    function displayTranscriptionResults(results) {
+        const container = document.getElementById('transcriptions-container');
+        let html = '<h4>Recent Transcriptions:</h4><table><thead><tr><th>Filename</th><th>Status</th><th>Transcription</th></tr></thead><tbody>';
+        
+        results.forEach(result => {
+            const status = result.success ? 
+                '<span style="color: #28a745;">✅ Success</span>' : 
+                '<span style="color: #dc3545;">❌ Failed</span>';
+            const transcription = result.success ? result.transcription : result.error;
+            
+            html += `<tr>
+                <td>${result.filename}</td>
+                <td>${status}</td>
+                <td style="max-width: 500px;">${transcription}</td>
+            </tr>`;
+        });
+        
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    }
+    
+    async function loadTranscriptions() {
+        const container = document.getElementById('transcriptions-container');
+        container.innerHTML = '<div class="spinner"></div>';
+        
+        try {
+            const response = await fetch('/api/transcriptions');
+            const data = await response.json();
+            
+            if (data.results.length === 0) {
+                container.innerHTML = '<p style="color: #6c757d; text-align: center;">No transcriptions yet. Upload audio files to transcribe them.</p>';
+                return;
+            }
+            
+            let html = '<table><thead><tr><th>Filename</th><th>Transcription</th></tr></thead><tbody>';
+            
+            data.results.forEach(result => {
+                html += `<tr>
+                    <td>${result.filename}</td>
+                    <td style="max-width: 600px;">${result.transcription}</td>
+                </tr>`;
+            });
+            
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        } catch (error) {
+            container.innerHTML = '<p style="color: #dc3545;">Error loading transcriptions: ' + error.message + '</p>';
+        }
+    }
+    
+    async function downloadTranscriptions() {
+        try {
+            const response = await fetch('/api/download-transcriptions');
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'transcriptions.tsv';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                showAlert('Transcriptions downloaded successfully!', 'success');
+            } else {
+                showAlert('No transcriptions file found', 'error');
+            }
+        } catch (error) {
+            showAlert('Error downloading transcriptions: ' + error.message, 'error');
+        }
+    }
+    
+    function showAlert(message, type) {
+        const alertContainer = document.getElementById('alert-container');
+        const alertClass = type === 'success' ? 'alert-success' : 'alert-error';
+        alertContainer.innerHTML = `<div class="alert ${alertClass}">${message}</div>`;
+        setTimeout(() => {
+            alertContainer.innerHTML = '';
+        }, 5000);
+    }
+    
+    // Load transcriptions on page load
+    loadTranscriptions();
+</script>
+{% endblock %}

@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <h2>📞 Bulk Caller</h2>
+    <p>Upload a list of phone numbers to call (one number per line).</p>
+</div>
+
+<div id="alert-container"></div>
+
+<div class="card">
+    <h3>Upload Phone Numbers</h3>
+    <form id="call-form">
+        <div class="form-group">
+            <label for="numbers_file">Phone Numbers File (TXT):</label>
+            <input type="file" id="numbers_file" name="numbers_file" accept=".txt" required>
+            <small style="color: #6c757d;">Upload a text file with one phone number per line (E.164 format, e.g., +1234567890)</small>
+        </div>
+        
+        <button type="submit" class="btn" id="start-btn">🚀 Start Calling</button>
+    </form>
+</div>
+
+<div id="progress-section" class="card hidden">
+    <h3>Calling Progress</h3>
+    <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill" style="width: 0%;">0%</div>
+    </div>
+    <p id="progress-text">Initializing...</p>
+</div>
+
+<div id="status-section" class="card hidden">
+    <h3>Active Calls</h3>
+    <div id="status-container">
+        <div class="spinner"></div>
+    </div>
+    <button class="btn btn-secondary" onclick="refreshStatus()">🔄 Refresh Status</button>
+</div>
+
+<div class="card">
+    <h3>ℹ️ Instructions</h3>
+    <ol style="line-height: 2; margin-left: 20px;">
+        <li>Make sure you've configured your API keys in the <a href="/config" style="color: #667eea;">Configuration</a> page</li>
+        <li>Prepare a text file with phone numbers (one per line)</li>
+        <li>Upload the file and click "Start Calling"</li>
+        <li>Monitor the progress and check results in the <a href="/results" style="color: #667eea;">Call Results</a> page</li>
+    </ol>
+    
+    <h4 style="margin-top: 20px;">Example numbers.txt format:</h4>
+    <pre style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-top: 10px;">+12025551234
++12025555678
++12025559012</pre>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let callInterval;
+    
+    document.getElementById('call-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData();
+        const fileInput = document.getElementById('numbers_file');
+        formData.append('numbers_file', fileInput.files[0]);
+        
+        document.getElementById('start-btn').disabled = true;
+        document.getElementById('start-btn').textContent = '⏳ Starting...';
+        
+        try {
+            const response = await fetch('/api/start-calls', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showAlert(`Started calling ${result.results.length} numbers!`, 'success');
+                document.getElementById('progress-section').classList.remove('hidden');
+                document.getElementById('status-section').classList.remove('hidden');
+                
+                // Start monitoring calls
+                callInterval = setInterval(refreshStatus, 5000);
+                refreshStatus();
+            } else {
+                showAlert('Error: ' + result.error, 'error');
+                document.getElementById('start-btn').disabled = false;
+                document.getElementById('start-btn').textContent = '🚀 Start Calling';
+            }
+        } catch (error) {
+            showAlert('Error: ' + error.message, 'error');
+            document.getElementById('start-btn').disabled = false;
+            document.getElementById('start-btn').textContent = '🚀 Start Calling';
+        }
+    });
+    
+    async function refreshStatus() {
+        try {
+            const response = await fetch('/api/call-status');
+            const data = await response.json();
+            
+            const statusContainer = document.getElementById('status-container');
+            
+            if (data.calls.length === 0) {
+                statusContainer.innerHTML = '<p style="color: #6c757d;">No active calls</p>';
+                if (callInterval) {
+                    clearInterval(callInterval);
+                }
+                document.getElementById('start-btn').disabled = false;
+                document.getElementById('start-btn').textContent = '🚀 Start Calling';
+            } else {
+                let html = '<table><thead><tr><th>Phone Number</th><th>Status</th><th>Start Time</th></tr></thead><tbody>';
+                
+                data.calls.forEach(call => {
+                    const statusEmoji = call.status === 'completed' ? '✅' : 
+                                       call.status === 'answered' ? '📞' : '🔄';
+                    html += `<tr>
+                        <td>${call.number}</td>
+                        <td>${statusEmoji} ${call.status}</td>
+                        <td>${new Date(call.start_time).toLocaleTimeString()}</td>
+                    </tr>`;
+                });
+                
+                html += '</tbody></table>';
+                statusContainer.innerHTML = html;
+                
+                // Update progress
+                document.getElementById('progress-text').textContent = 
+                    `Active calls: ${data.total}`;
+            }
+        } catch (error) {
+            console.error('Error refreshing status:', error);
+        }
+    }
+    
+    function showAlert(message, type) {
+        const alertContainer = document.getElementById('alert-container');
+        const alertClass = type === 'success' ? 'alert-success' : 'alert-error';
+        alertContainer.innerHTML = `<div class="alert ${alertClass}">${message}</div>`;
+        setTimeout(() => {
+            alertContainer.innerHTML = '';
+        }, 5000);
+    }
+</script>
+{% endblock %}
