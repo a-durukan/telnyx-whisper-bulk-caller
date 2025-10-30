@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <h2>⚙️ Configuration</h2>
+    <p>Configure your API keys and settings for the application.</p>
+</div>
+
+<div id="alert-container"></div>
+
+<div class="card">
+    <h3>API Keys</h3>
+    <form id="config-form">
+        <div class="form-group">
+            <label for="telnyx_api_key">Telnyx API Key:</label>
+            <input type="text" id="telnyx_api_key" name="telnyx_api_key" placeholder="Enter your Telnyx API key">
+            <small style="color: #6c757d;">Your Telnyx API key for making calls</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="openai_api_key">OpenAI API Key:</label>
+            <input type="text" id="openai_api_key" name="openai_api_key" placeholder="Enter your OpenAI API key">
+            <small style="color: #6c757d;">Your OpenAI API key for transcription</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="connection_id">Telnyx Connection ID:</label>
+            <input type="text" id="connection_id" name="connection_id" placeholder="Enter your Telnyx connection ID">
+            <small style="color: #6c757d;">Your Telnyx connection ID</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="from_number">From Number:</label>
+            <input type="text" id="from_number" name="from_number" placeholder="+1234567890">
+            <small style="color: #6c757d;">The phone number to call from (E.164 format)</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="audio_url">Audio File URL:</label>
+            <input type="text" id="audio_url" name="audio_url" placeholder="https://example.com/audio.mp3">
+            <small style="color: #6c757d;">URL of the audio file to play during calls</small>
+        </div>
+        
+        <button type="submit" class="btn">💾 Save Configuration</button>
+    </form>
+</div>
+
+<div class="card">
+    <h3>ℹ️ Important Notes</h3>
+    <ul style="line-height: 2; margin-left: 20px;">
+        <li>API keys are stored locally in config.json</li>
+        <li>Keep your API keys secure and never share them</li>
+        <li>You need both Telnyx and OpenAI accounts to use this application</li>
+        <li>Make sure your Telnyx account is configured with proper webhooks</li>
+    </ul>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Load current configuration
+    async function loadConfig() {
+        try {
+            const response = await fetch('/api/config');
+            const config = await response.json();
+            
+            if (config.telnyx_api_key) {
+                document.getElementById('telnyx_api_key').placeholder = config.telnyx_api_key;
+            }
+            if (config.openai_api_key) {
+                document.getElementById('openai_api_key').placeholder = config.openai_api_key;
+            }
+            if (config.connection_id) {
+                document.getElementById('connection_id').value = config.connection_id;
+            }
+            if (config.from_number) {
+                document.getElementById('from_number').value = config.from_number;
+            }
+            if (config.audio_url) {
+                document.getElementById('audio_url').value = config.audio_url;
+            }
+        } catch (error) {
+            console.error('Error loading config:', error);
+        }
+    }
+    
+    // Save configuration
+    document.getElementById('config-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const config = {
+            telnyx_api_key: document.getElementById('telnyx_api_key').value,
+            openai_api_key: document.getElementById('openai_api_key').value,
+            connection_id: document.getElementById('connection_id').value,
+            from_number: document.getElementById('from_number').value,
+            audio_url: document.getElementById('audio_url').value
+        };
+        
+        try {
+            const response = await fetch('/api/config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(config)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showAlert('Configuration saved successfully!', 'success');
+                // Clear password fields after saving
+                document.getElementById('telnyx_api_key').value = '';
+                document.getElementById('openai_api_key').value = '';
+                loadConfig();
+            } else {
+                showAlert('Error saving configuration', 'error');
+            }
+        } catch (error) {
+            showAlert('Error: ' + error.message, 'error');
+        }
+    });
+    
+    function showAlert(message, type) {
+        const alertContainer = document.getElementById('alert-container');
+        const alertClass = type === 'success' ? 'alert-success' : 'alert-error';
+        alertContainer.innerHTML = `<div class="alert ${alertClass}">${message}</div>`;
+        setTimeout(() => {
+            alertContainer.innerHTML = '';
+        }, 5000);
+    }
+    
+    // Load config on page load
+    loadConfig();
+</script>
+{% endblock %}

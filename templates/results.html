@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <h2>📊 Call Results</h2>
+    <p>View and download transcription results from completed calls.</p>
+</div>
+
+<div id="alert-container"></div>
+
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3>Results</h3>
+        <div>
+            <button class="btn btn-secondary" onclick="loadResults()">🔄 Refresh</button>
+            <button class="btn btn-success" onclick="downloadResults()">📥 Download TSV</button>
+        </div>
+    </div>
+    
+    <div id="results-container">
+        <div class="spinner"></div>
+    </div>
+</div>
+
+<div class="card">
+    <h3>📈 Statistics</h3>
+    <div id="stats-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+        <div style="text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+            <div style="font-size: 2em; color: #667eea;" id="total-calls">0</div>
+            <div style="color: #6c757d;">Total Calls</div>
+        </div>
+        <div style="text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+            <div style="font-size: 2em; color: #28a745;" id="total-duration">0</div>
+            <div style="color: #6c757d;">Total Duration (s)</div>
+        </div>
+        <div style="text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+            <div style="font-size: 2em; color: #764ba2;" id="avg-duration">0</div>
+            <div style="color: #6c757d;">Avg Duration (s)</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    async function loadResults() {
+        const resultsContainer = document.getElementById('results-container');
+        resultsContainer.innerHTML = '<div class="spinner"></div>';
+        
+        try {
+            const response = await fetch('/api/results');
+            const data = await response.json();
+            
+            if (data.results.length === 0) {
+                resultsContainer.innerHTML = '<p style="color: #6c757d; text-align: center;">No results yet. Start making calls to see results here.</p>';
+                return;
+            }
+            
+            // Calculate statistics
+            let totalDuration = 0;
+            let validDurations = 0;
+            
+            data.results.forEach(result => {
+                const duration = parseFloat(result.duration);
+                if (!isNaN(duration)) {
+                    totalDuration += duration;
+                    validDurations++;
+                }
+            });
+            
+            document.getElementById('total-calls').textContent = data.results.length;
+            document.getElementById('total-duration').textContent = totalDuration.toFixed(1);
+            document.getElementById('avg-duration').textContent = 
+                validDurations > 0 ? (totalDuration / validDurations).toFixed(1) : '0';
+            
+            // Build results table
+            let html = '<table><thead><tr><th>From</th><th>To</th><th>Transcription</th><th>Duration (s)</th></tr></thead><tbody>';
+            
+            data.results.forEach(result => {
+                html += `<tr>
+                    <td>${result.from_number}</td>
+                    <td>${result.to_number}</td>
+                    <td style="max-width: 400px;">${result.transcription}</td>
+                    <td>${result.duration}</td>
+                </tr>`;
+            });
+            
+            html += '</tbody></table>';
+            resultsContainer.innerHTML = html;
+        } catch (error) {
+            resultsContainer.innerHTML = '<p style="color: #dc3545;">Error loading results: ' + error.message + '</p>';
+        }
+    }
+    
+    async function downloadResults() {
+        try {
+            const response = await fetch('/api/download-results');
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'results.tsv';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                showAlert('Results downloaded successfully!', 'success');
+            } else {
+                showAlert('No results file found', 'error');
+            }
+        } catch (error) {
+            showAlert('Error downloading results: ' + error.message, 'error');
+        }
+    }
+    
+    function showAlert(message, type) {
+        const alertContainer = document.getElementById('alert-container');
+        const alertClass = type === 'success' ? 'alert-success' : 'alert-error';
+        alertContainer.innerHTML = `<div class="alert ${alertClass}">${message}</div>`;
+        setTimeout(() => {
+            alertContainer.innerHTML = '';
+        }, 5000);
+    }
+    
+    // Load results on page load
+    loadResults();
+    
+    // Auto-refresh every 10 seconds
+    setInterval(loadResults, 10000);
+</script>
+{% endblock %}

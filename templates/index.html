@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <h2>Welcome to Telnyx Whisper Bulk Caller</h2>
+    <p>This application allows you to make bulk phone calls, record them, and transcribe the recordings using AI.</p>
+    
+    <h3 style="margin-top: 30px;">Features</h3>
+    <ul style="line-height: 2; margin-left: 20px;">
+        <li><strong>Bulk Calling:</strong> Make multiple calls simultaneously with Telnyx API</li>
+        <li><strong>Auto Recording:</strong> Automatically record all calls</li>
+        <li><strong>AI Transcription:</strong> Transcribe recordings using OpenAI Whisper</li>
+        <li><strong>Audio Transcriber:</strong> Batch transcribe audio files</li>
+        <li><strong>Results Export:</strong> Download results as TSV files</li>
+    </ul>
+    
+    <h3 style="margin-top: 30px;">Getting Started</h3>
+    <ol style="line-height: 2; margin-left: 20px;">
+        <li>Go to <a href="/config" style="color: #667eea;">Configuration</a> and set up your API keys</li>
+        <li>Use <a href="/caller" style="color: #667eea;">Bulk Caller</a> to start making calls</li>
+        <li>Monitor and download results from <a href="/results" style="color: #667eea;">Call Results</a></li>
+        <li>Use <a href="/transcriber" style="color: #667eea;">Audio Transcriber</a> for batch audio transcription</li>
+    </ol>
+</div>
+
+<div class="card">
+    <h3>Quick Links</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
+        <a href="/config" class="btn" style="text-decoration: none; text-align: center;">⚙️ Configuration</a>
+        <a href="/caller" class="btn btn-success" style="text-decoration: none; text-align: center;">📞 Start Calling</a>
+        <a href="/results" class="btn btn-secondary" style="text-decoration: none; text-align: center;">📊 View Results</a>
+        <a href="/transcriber" class="btn" style="text-decoration: none; text-align: center;">🎵 Transcribe Audio</a>
+    </div>
+</div>
+
+<div class="card">
+    <h3>Documentation</h3>
+    <p>This application integrates with:</p>
+    <ul style="line-height: 2; margin-left: 20px; margin-top: 10px;">
+        <li><strong>Telnyx API:</strong> For making and managing phone calls</li>
+        <li><strong>OpenAI Whisper:</strong> For audio transcription</li>
+    </ul>
+    <p style="margin-top: 15px;">
+        For more information, check the <a href="https://github.com/a-durukan/telnyx-whisper-bulk-caller" target="_blank" style="color: #667eea;">GitHub repository</a>.
+    </p>
+</div>
+{% endblock %}
