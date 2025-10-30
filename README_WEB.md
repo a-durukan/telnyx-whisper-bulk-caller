@@ -46,7 +46,20 @@ Run the web application:
 python web_app.py
 ```
 
+For development with debug mode:
+```bash
+export FLASK_DEBUG=True
+python web_app.py
+```
+
 The application will start on `http://localhost:5000`
+
+### Environment Variables
+
+- `SECRET_KEY`: Secret key for Flask sessions (auto-generated if not provided)
+- `FLASK_DEBUG`: Set to `True` to enable debug mode (default: `False`)
+
+**Security Note**: Never run with `FLASK_DEBUG=True` in production!
 
 ### Web Interface Pages
 

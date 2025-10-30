@@ -4,6 +4,7 @@ import json
 import os
 import time
 import logging
+import secrets
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_file
 from werkzeug.utils import secure_filename
@@ -11,7 +12,7 @@ import telnyx
 import openai
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-here'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
 
@@ -224,8 +225,8 @@ def api_transcribe():
             # Clean up uploaded file
             try:
                 os.remove(filepath)
-            except:
-                pass
+            except (OSError, FileNotFoundError) as e:
+                logging.warning(f"Could not remove temporary file {filepath}: {e}")
     
     # Save results to TSV
     if results:
@@ -320,4 +321,6 @@ def call_recording_saved():
     return '', 200
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # Get debug mode from environment, default to False for production safety
+    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() in ('true', '1', 'yes')
+    app.run(host='0.0.0.0', port=5000, debug=debug_mode)
