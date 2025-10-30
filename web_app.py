@@ -307,6 +307,8 @@ def call_recording_saved():
             
             if recording_url:
                 parsed_url = urlparse(recording_url)
+                # SECURITY: Validate URL is from Telnyx before downloading
+                # This URL comes from Telnyx webhook and must be validated to prevent SSRF
                 # Only allow downloads from Telnyx domains with strict validation
                 if not (parsed_url.hostname and 
                        parsed_url.scheme in ('https', 'http') and
@@ -314,6 +316,7 @@ def call_recording_saved():
                     logging.error(f"Invalid recording URL domain: {parsed_url.hostname}")
                     return '', 200
                 
+                # Download recording from validated Telnyx URL
                 audio_file = requests.get(recording_url, stream=True, timeout=30).raw
                 transcript = openai.Audio.transcribe("whisper-1", audio_file)
             else:
